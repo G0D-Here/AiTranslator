@@ -9,6 +9,13 @@ import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,6 +29,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -30,9 +38,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedButton
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
@@ -51,7 +59,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -77,7 +84,7 @@ fun MainScreen() {
     val speechToText = remember { SpeechToText(application) }
     val allLanguages = getAllLanguages()
     val state by speechToText.state.collectAsState()
-    var text by remember { mutableStateOf(state.text) }
+    var text by remember { mutableStateOf(state.text.ifEmpty { "Enter text here..." }) }
     var canSpeak by remember { mutableStateOf(false) }
 
 
@@ -99,19 +106,33 @@ fun MainScreen() {
     }
 
     var hasPermission by remember { mutableStateOf(false) }
+    var showAnimation by remember { mutableStateOf(false) }
+
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
         hasPermission = granted
         if (granted) {
-            if (state.loading) speechToText.stopListening() else speechToText.startListening()
+            if (state.loading) {
+                speechToText.stopListening()
+            } else {
+//                showAnimation = true
+                speechToText.startListening()
+            }
         }
     }
 
 
+
     LaunchedEffect(state) {
         text = state.text
+        showAnimation = state.loading
+    }
+    LaunchedEffect(text) {
+        translation(text, targetLanguage, "en") {
+            translatedText = it
+        }
     }
     LaunchedEffect(Unit) {
         hasPermission = ContextCompat.checkSelfPermission(
@@ -137,7 +158,7 @@ fun MainScreen() {
 
     Box(
         Modifier
-            .background(Color(0xFFFFFFFF))
+            .background(Color(0xFFEEEEEE))
             .fillMaxSize()
             .padding(), contentAlignment = Alignment.Center
     ) {
@@ -151,33 +172,31 @@ fun MainScreen() {
                 title = {
                     Text(
                         "Translator",
-                        color = Color.White,
+                        color = Color.Black,
                         fontFamily = FontFamily.Serif
                     )
                 },
                 Modifier
                     .padding(bottom = 2.dp)
-                    .shadow(4.dp, RoundedCornerShape(20.dp))
                     .clip(RoundedCornerShape(20.dp))
                     .fillMaxWidth(),
                 actions = {
                     Button(
                         onClick = { targetCardVisible = !targetCardVisible },
                         modifier = Modifier.padding(end = 10.dp),
-                        colors = ButtonDefaults.buttonColors(Color(0xFFFFFFFF))
+                        colors = ButtonDefaults.buttonColors(Color(0xFFDFEEFF))
                     ) {
                         Text(text = targetLanguage, color = Color.Black)
 
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(Color(0xFF9C27B0))
+                colors = TopAppBarDefaults.topAppBarColors(Color(0xFFFFFFFF))
             )
 
-            ElevatedCard(
+            Card(
                 modifier = Modifier
                     .height(290.dp)
-                    .padding(16.dp),
-                elevation = CardDefaults.elevatedCardElevation(3.dp),
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
                 colors = CardDefaults.cardColors(Color(0xFFFFFFFF))
             ) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
@@ -185,54 +204,26 @@ fun MainScreen() {
                     TransparentTextField(modifier =
                     Modifier
                         .fillMaxWidth()
-                        .heightIn(400.dp), value = text, onValueChange = {
-                        text = it
-                        languageIdentifier(text) { out ->
-                            enteredLangCode = out
-                            Log.d("IDENTIFY", "this is the code: $out")
+                        .heightIn(400.dp),
+                        value = text,
+                        placeholder = {Text("Enter text here...")},
+                        onValueChange = {
+                            text = it
+                            languageIdentifier(text) { out ->
+                                enteredLangCode = out
+                                Log.d("IDENTIFY", "this is the code: $out")
+                            }
                         }
-                    }
                     )
 
                     Row(
                         Modifier
                             .fillMaxWidth()
                             .padding(bottom = 10.dp, start = 10.dp, end = 10.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        ElevatedButton(
-                            onClick = {
-                                textToSpeech.stop()
-                                translatedText = ""
-                                if (hasPermission) {
-                                    if (state.loading) {
-                                        text = ""
-                                        speechToText.stopListening()
-                                    } else speechToText.startListening()
-                                } else {
-                                    permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                                }
-                            },
-                            modifier = Modifier
-                                .size(40.dp),
-                            enabled = hasPermission || !state.loading,
-                            colors = ButtonDefaults.buttonColors(Color(0xFF000000)),
-                            elevation = ButtonDefaults.elevatedButtonElevation(4.dp),
-                            contentPadding = PaddingValues(6.dp)
-                        )
-                        {
-                            Icon(
-                                imageVector = Icons.Filled.Mic,
-                                "Speak",
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .padding(0.dp),
-                                tint = Color.White
-                            )
-                        }
 
-                        Text(text = "Det. lang $enteredLangCode")
                         ElevatedButton(
                             onClick = {
                                 if (canSpeak) {
@@ -241,7 +232,7 @@ fun MainScreen() {
                                 }
                             },
                             enabled = canSpeak,
-                            colors = ButtonDefaults.buttonColors(Color(0xFF9C27B0))
+                            colors = ButtonDefaults.buttonColors(Color(0xFF2196F3))
                         ) { Text("Listen", color = Color.White) }
 
                     }
@@ -249,12 +240,11 @@ fun MainScreen() {
             }
 
 
-            ElevatedCard(
+
+            Card(
                 Modifier
-                    .height(290.dp)
-                    .padding(start = 16.dp, end = 16.dp)
-                    .shadow(2.dp, RoundedCornerShape(20.dp), ambientColor = Color(0xFF9C27B0)),
-                elevation = CardDefaults.elevatedCardElevation(3.dp),
+                    .height(280.dp)
+                    .padding(horizontal = 16.dp),
                 colors = CardDefaults.cardColors(Color(0xFFFFFFFF))
             ) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
@@ -270,9 +260,9 @@ fun MainScreen() {
                                     !hasPermission -> Text("Microphone permission required")
                                     currentState.loading -> Text("Speak in English")
                                     true -> Text(
-                                        translatedText.ifEmpty { "Click to translate..." },
+                                        translatedText.ifEmpty { "Translated text here..." },
                                         fontFamily = FontFamily.SansSerif,
-                                        fontWeight = FontWeight.Medium,
+                                        fontWeight = FontWeight.Normal,
                                         fontSize = 16.sp
                                     )
 
@@ -286,11 +276,10 @@ fun MainScreen() {
                         Modifier
                             .padding(bottom = 10.dp, start = 6.dp, end = 6.dp)
                             .fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         ElevatedButton(
-
                             onClick = {
                                 isSpeaking = !isSpeaking
                                 if (canSpeak && !isSpeaking) {
@@ -298,56 +287,86 @@ fun MainScreen() {
                                 } else textToSpeech.stop()
                             },
                             enabled = canSpeak,
-                            colors = ButtonDefaults.buttonColors(Color(0xFF000000))
+                            colors = ButtonDefaults.buttonColors(Color(0xFF2196F3))
                         ) { Text("Speak translated") }
 
-                        ElevatedButton(
-                            onClick = {
-                                translation(
-                                    text = text,
-                                    targetLanguage = targetLanguage,
-                                    sourceLanguage = "en"
-                                ) {
-                                    translatedText = it
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(Color(0xFF9C27B0)),
-                        ) {
-                            Text("Translate")
-                        }
                     }
+                }
+
+            }
+
+            AnimatedContent(showAnimation) { show ->
+                if (show)
+                    MicWaveAnimation(
+                        modifier = Modifier.size(100.dp),
+                        isRecording = state.loading
+                    )
+                else Row(
+                    Modifier
+                        .padding(10.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .fillMaxWidth()
+                        .background(Color.White),
+                    horizontalArrangement = Arrangement.SpaceAround,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            showCamera = !showCamera
+                        },
+                        Modifier
+                            .padding(10.dp)
+                            .size(100.dp, 40.dp)
+                            .clip(CircleShape)
+                    ) {
+                        Text("Camera")
+                    }
+
+                    ElevatedButton(
+                        onClick = {
+                            showAnimation = true
+                            textToSpeech.stop()
+                            translatedText = ""
+                            if (hasPermission) {
+                                if (state.loading) {
+                                    text = ""
+                                    speechToText.stopListening()
+                                } else speechToText.startListening()
+                            } else {
+                                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                            }
+                        },
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .size(50.dp),
+                        enabled = hasPermission || !state.loading,
+                        colors = ButtonDefaults.buttonColors(Color(0xFFFFFFFF)),
+                        contentPadding = PaddingValues(6.dp)
+                    )
+                    {
+                        Icon(
+                            imageVector = Icons.Filled.Mic,
+                            "Speak",
+                            modifier = Modifier
+                                .size(40.dp),
+                            tint = Color.Black
+                        )
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            galleryLauncher.launch("image/*")
+                        }, Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .padding(10.dp)
+                            .size(95.dp, 40.dp)
+                    ) {
+                        Text("Gallery")
+                    }
+
                 }
             }
 
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(10.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedButton(
-                    onClick = {
-                        showCamera = !showCamera
-                    },
-                    Modifier
-                        .padding(10.dp)
-                        .size(100.dp, 40.dp)
-                        .clip(CircleShape)
-                ) {
-                    Text("Camera")
-                }
-                OutlinedButton(
-                    onClick = {
-                        galleryLauncher.launch("image/*")
-                    }, Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .padding(10.dp)
-                        .size(95.dp, 40.dp)
-                ) {
-                    Text("Gallery")
-                }
-            }
         }
         if (targetCardVisible)
             AllLanguagesCard(allLanguages) {
@@ -372,11 +391,17 @@ fun MainScreen() {
 }
 
 @Composable
-fun TransparentTextField(modifier: Modifier, value: String, onValueChange: (String) -> Unit) {
+fun TransparentTextField(
+    modifier: Modifier,
+    value: String,
+    placeholder: @Composable () -> Unit = {},
+    onValueChange: (String) -> Unit
+) {
     TextField(
         value = value,
         onValueChange = onValueChange,
         modifier = modifier,
+        placeholder = placeholder,
         colors = TextFieldDefaults.colors(
             focusedIndicatorColor = Color.Transparent,
             unfocusedIndicatorColor = Color.Transparent,
@@ -390,21 +415,88 @@ fun TransparentTextField(modifier: Modifier, value: String, onValueChange: (Stri
 
 @Composable
 fun AllLanguagesCard(languages: List<String>, selected: (String) -> Unit = {}) {
-    ElevatedCard(
+    Column(
         Modifier
-            .padding(30.dp),
+            .fillMaxWidth()
+            .padding(10.dp), horizontalAlignment = Alignment.End
     ) {
         LazyColumn(
             Modifier
-                .padding(20.dp)
-                .fillMaxWidth()
-                .height(400.dp),
+                .padding(10.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color(0xFF75BCFF))
+                .height(500.dp)
+                .width(150.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             items(languages) {
-                Text(getLanguageName(it), Modifier.clickable { selected(it) })
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(6.dp)
+                ) {
+                    Text(
+                        getLanguageName(it),
+                        Modifier
+                            .background(Color.White)
+                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                            .fillMaxWidth()
+                            .clickable { selected(it) }, fontSize = 18.sp
+                    )
+                }
             }
         }
+    }
+}
+
+@Composable
+fun MicWaveAnimation(
+    modifier: Modifier = Modifier,
+    isRecording: Boolean
+) {
+    var isPlaying by remember { mutableStateOf(isRecording) }
+    val infiniteTransition = rememberInfiniteTransition()
+
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        )
+    )
+
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.5f,
+        targetValue = 0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(5000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        )
+    )
+
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier.size(100.dp)
+    ) {
+        if (isPlaying) {
+            Canvas(modifier = Modifier
+                .fillMaxSize()
+                .clickable { isPlaying = false }) {
+                drawCircle(
+                    color = Color.Blue,
+                    radius = size.minDimension / 3 * scale,
+                    alpha = alpha
+                )
+            }
+        }
+
+        Icon(
+            imageVector = Icons.Default.Mic,
+            contentDescription = "Mic",
+            tint = if (isRecording) Color.Red else Color.Gray,
+            modifier = Modifier.size(40.dp)
+        )
     }
 }

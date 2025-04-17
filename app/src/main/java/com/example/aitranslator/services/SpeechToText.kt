@@ -53,12 +53,12 @@ class SpeechToText(
     }
 
     fun stopListening() {
+        recognizer.stopListening()
         _state.update {
             it.copy(
                 loading = false
             )
         }
-        recognizer.stopListening()
     }
 
     override fun onReadyForSpeech(p0: Bundle?) {
