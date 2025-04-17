@@ -8,10 +8,6 @@ import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.TranslatorOptions
 import java.util.Locale
 
-//import org.languagetool.JLanguageTool
-//import org.languagetool.language.BritishEnglish
-//import org.languagetool.rules.RuleMatch
-
 
 fun getAllLanguages(): List<String> = TranslateLanguage.getAllLanguages()
 

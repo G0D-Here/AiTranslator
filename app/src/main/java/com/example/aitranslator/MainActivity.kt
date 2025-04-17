@@ -24,7 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import com.example.aitranslator.appui.speechtotext.MainScreen
-import com.example.aitranslator.appui.speechtotext.MainScreenViewModel
 import com.example.aitranslator.ui.theme.AiTranslatorTheme
 
 class MainActivity : ComponentActivity() {
@@ -38,7 +37,9 @@ class MainActivity : ComponentActivity() {
                     mutableStateOf(
                         ContextCompat.checkSelfPermission(
                             context,
+
                             Manifest.permission.RECORD_AUDIO
+
                         ) == PackageManager.PERMISSION_GRANTED
                     )
                 }

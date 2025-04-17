@@ -1,5 +1,6 @@
 [versions]
 agp = "8.8.2"
+cameraCore = "1.5.0-alpha06"
 kotlin = "2.0.0"
 coreKtx = "1.15.0"
 junit = "4.13.2"
@@ -11,10 +12,18 @@ lifecycleRuntimeKtx = "2.8.7"
 activityCompose = "1.10.1"
 composeBom = "2025.03.01"
 materialIconsExtended = "1.7.8"
+textRecognitionVersion = "16.0.1"
 translate = "17.0.3"
 
 
 [libraries]
+androidx-camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "cameraCore" }
+androidx-camera-core = { module = "androidx.camera:camera-core", version.ref = "cameraCore" }
+androidx-camera-extensions = { module = "androidx.camera:camera-extensions", version.ref = "cameraCore" }
+androidx-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "cameraCore" }
+androidx-camera-mlkit-vision = { module = "androidx.camera:camera-mlkit-vision", version.ref = "cameraCore" }
+androidx-camera-video = { module = "androidx.camera:camera-video", version.ref = "cameraCore" }
+androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "cameraCore" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "materialIconsExtended" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -33,6 +42,7 @@ androidx-material3 = { group = "androidx.compose.material3", name = "material3" 
 
 language-en = { module = "org.languagetool:language-en", version.ref = "languageEn" }
 language-id = { module = "com.google.mlkit:language-id", version.ref = "languageId" }
+mlkit-text-recognition = { module = "com.google.mlkit:text-recognition", version.ref = "textRecognitionVersion" }
 translate = { module = "com.google.mlkit:translate", version.ref = "translate" }
 
 [plugins]

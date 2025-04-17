@@ -1,9 +1,10 @@
 package com.example.aitranslator.appui.speechtotext
 
-//import com.example.aitranslator.services.correctGrammar
 import android.Manifest
 import android.app.Application
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.ImageDecoder
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
@@ -33,6 +35,7 @@ import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -56,6 +59,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.example.aitranslator.appui.imagetotext.ImageToTextScreen
+import com.example.aitranslator.appui.imagetotext.textRecogniser
 import com.example.aitranslator.services.SpeechToText
 import com.example.aitranslator.services.TextToSpeech
 import com.example.aitranslator.services.getAllLanguages
@@ -77,6 +82,7 @@ fun MainScreen() {
 
 
     var translatedText by remember { mutableStateOf("") }
+    var isSpeaking by remember { mutableStateOf(false) }
 
     var sourceLanguage by remember { mutableStateOf("en") }
     var targetLanguage by remember { mutableStateOf("hi") }
@@ -85,11 +91,11 @@ fun MainScreen() {
     var sourceCardVisible by remember { mutableStateOf(false) }
 
     var enteredLangCode by remember { mutableStateOf("") }
+    var showCamera by remember { mutableStateOf(false) }
 
 
     val textToSpeech = TextToSpeech(context) { isSuccess ->
         canSpeak = isSuccess
-
     }
 
     var hasPermission by remember { mutableStateOf(false) }
@@ -112,6 +118,21 @@ fun MainScreen() {
             context,
             Manifest.permission.RECORD_AUDIO
         ) == PackageManager.PERMISSION_GRANTED
+    }
+    var bitmap by remember { mutableStateOf<Bitmap?>(null) }
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let { it ->
+            val source = ImageDecoder.createSource(context.contentResolver, it)
+            bitmap = ImageDecoder.decodeBitmap(source)
+            bitmap?.let {
+                textRecogniser(it) { detected ->
+                    text = detected
+                }
+            }
+        }
     }
 
     Box(
@@ -149,12 +170,12 @@ fun MainScreen() {
 
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(Color(0xFFFF9800))
+                colors = TopAppBarDefaults.topAppBarColors(Color(0xFF9C27B0))
             )
 
             ElevatedCard(
                 modifier = Modifier
-                    .height(270.dp)
+                    .height(290.dp)
                     .padding(16.dp),
                 elevation = CardDefaults.elevatedCardElevation(3.dp),
                 colors = CardDefaults.cardColors(Color(0xFFFFFFFF))
@@ -173,31 +194,6 @@ fun MainScreen() {
                     }
                     )
 
-
-//                    LazyColumn(
-//                        Modifier
-//                            .padding(20.dp)
-//                            .fillMaxWidth()
-//                            .heightIn(400.dp)
-//                    ) {
-//                        item {
-//                            AnimatedContent(targetState = state) { currentState ->
-//                                when {
-//                                    !hasPermission -> Text("Microphone permission required")
-//                                    currentState.loading -> Text("Listening...")
-//                                    true -> Text(
-//                                        state.text.ifEmpty { "Press button to start" },
-//                                        fontFamily = FontFamily.SansSerif,
-//                                        fontWeight = FontWeight.Medium,
-//                                        fontSize = 16.sp
-//                                    )
-//
-//                                    else -> Text("Error: ${currentState.error}")
-//                                }
-//                            }
-//                        }
-//                    }
-
                     Row(
                         Modifier
                             .fillMaxWidth()
@@ -207,9 +203,13 @@ fun MainScreen() {
                     ) {
                         ElevatedButton(
                             onClick = {
+                                textToSpeech.stop()
                                 translatedText = ""
                                 if (hasPermission) {
-                                    if (state.loading) speechToText.stopListening() else speechToText.startListening()
+                                    if (state.loading) {
+                                        text = ""
+                                        speechToText.stopListening()
+                                    } else speechToText.startListening()
                                 } else {
                                     permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                                 }
@@ -233,7 +233,6 @@ fun MainScreen() {
                         }
 
                         Text(text = "Det. lang $enteredLangCode")
-//                        IconButton(onClick = { }) { }
                         ElevatedButton(
                             onClick = {
                                 if (canSpeak) {
@@ -242,7 +241,7 @@ fun MainScreen() {
                                 }
                             },
                             enabled = canSpeak,
-                            colors = ButtonDefaults.buttonColors(Color(0xFFFF9800))
+                            colors = ButtonDefaults.buttonColors(Color(0xFF9C27B0))
                         ) { Text("Listen", color = Color.White) }
 
                     }
@@ -252,8 +251,9 @@ fun MainScreen() {
 
             ElevatedCard(
                 Modifier
-                    .height(270.dp)
-                    .padding(start = 16.dp, end = 16.dp),
+                    .height(290.dp)
+                    .padding(start = 16.dp, end = 16.dp)
+                    .shadow(2.dp, RoundedCornerShape(20.dp), ambientColor = Color(0xFF9C27B0)),
                 elevation = CardDefaults.elevatedCardElevation(3.dp),
                 colors = CardDefaults.cardColors(Color(0xFFFFFFFF))
             ) {
@@ -290,10 +290,12 @@ fun MainScreen() {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         ElevatedButton(
+
                             onClick = {
-                                if (canSpeak) {
+                                isSpeaking = !isSpeaking
+                                if (canSpeak && !isSpeaking) {
                                     textToSpeech.speak(translatedText)
-                                }
+                                } else textToSpeech.stop()
                             },
                             enabled = canSpeak,
                             colors = ButtonDefaults.buttonColors(Color(0xFF000000))
@@ -304,16 +306,46 @@ fun MainScreen() {
                                 translation(
                                     text = text,
                                     targetLanguage = targetLanguage,
-                                    sourceLanguage = enteredLangCode
+                                    sourceLanguage = "en"
                                 ) {
                                     translatedText = it
                                 }
                             },
-                            colors = ButtonDefaults.buttonColors(Color(0xFFFF9800))
+                            colors = ButtonDefaults.buttonColors(Color(0xFF9C27B0)),
                         ) {
                             Text("Translate")
                         }
                     }
+                }
+            }
+
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(10.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        showCamera = !showCamera
+                    },
+                    Modifier
+                        .padding(10.dp)
+                        .size(100.dp, 40.dp)
+                        .clip(CircleShape)
+                ) {
+                    Text("Camera")
+                }
+                OutlinedButton(
+                    onClick = {
+                        galleryLauncher.launch("image/*")
+                    }, Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .padding(10.dp)
+                        .size(95.dp, 40.dp)
+                ) {
+                    Text("Gallery")
                 }
             }
         }
@@ -328,6 +360,13 @@ fun MainScreen() {
                 sourceCardVisible = false
 
             }
+        AnimatedContent(showCamera) { show ->
+            if (show) {
+                ImageToTextScreen(show = { showCamera = it }) {
+                    text = it
+                }
+            }
+        }
     }
 
 }
@@ -369,48 +408,3 @@ fun AllLanguagesCard(languages: List<String>, selected: (String) -> Unit = {}) {
         }
     }
 }
-
-
-//ElevatedButton(
-//                            onClick = {
-//                                if (canSpeak) {
-//                                    textToSpeech.speak(state.text)
-//                                }
-//                            },
-//                            enabled = canSpeak,
-//                            colors = ButtonDefaults.buttonColors(Color(0xFF000000))
-//                        ) { Text("Text to Speak") }
-//
-//                        ElevatedButton(
-//                            onClick = { translation(state.text, "hi") { textToSpeech.speak(it) } },
-//                            colors = ButtonDefaults.buttonColors(Color(0xFFFF9800))
-//                        ) {
-//                            Text("Speak in Hindi")
-//                        }
-//
-//                        ElevatedButton(
-//                            onClick = {
-//                                if (hasPermission) {
-//                                    if (state.loading) speechToText.stopListening() else speechToText.startListening()
-//                                } else {
-//                                    permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-//                                }
-//                            },
-//                            modifier = Modifier
-//                                .padding(bottom = 50.dp)
-//                                .size(50.dp),
-//                            enabled = hasPermission || !state.loading,
-//                            colors = ButtonDefaults.buttonColors(Color(0xFF0377F4)),
-//                            elevation = ButtonDefaults.elevatedButtonElevation(4.dp),
-//                            contentPadding = PaddingValues(6.dp)
-//                        )
-//                        {
-//                            Icon(
-//                                imageVector = Icons.Filled.Mic,
-//                                "Speak",
-//                                modifier = Modifier
-//                                    .size(48.dp)
-//                                    .padding(0.dp),
-//                                tint = Color.White
-//                            )
-//                        }
